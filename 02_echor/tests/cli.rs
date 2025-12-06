@@ -1,13 +1,13 @@
 use anyhow::Result;
-use assert_cmd::Command;
 use predicates::prelude::*;
 use pretty_assertions::assert_eq;
 use std::fs;
-
+use assert_cmd::prelude::*; // Command::cargo_bin を使うために必要
+use std::process::Command;
 // --------------------------------------------------
 #[test]
 fn dies_no_args() -> Result<()> {
-    Command::cargo_bin("echor")?
+    Command::new(assert_cmd::cargo::cargo_bin!("echor"))
         .assert()
         .failure()
         .stderr(predicate::str::contains("Usage"));
@@ -17,7 +17,7 @@ fn dies_no_args() -> Result<()> {
 // --------------------------------------------------
 fn run(args: &[&str], expected_file: &str) -> Result<()> {
     let expected = fs::read_to_string(expected_file)?;
-    let output = Command::cargo_bin("echor")?
+    let output = Command::new(assert_cmd::cargo::cargo_bin!("echor"))
         .args(args)
         .output()
         .expect("fail");
