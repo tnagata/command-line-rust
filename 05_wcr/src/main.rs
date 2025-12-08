@@ -133,7 +133,7 @@ fn count(mut file: impl BufRead) -> Result<FileInfo> {
         num_bytes += line_bytes;
         num_lines += 1;
         num_words += line.split_whitespace().count();
-        num_chars += line.trim_end().chars().count(); // chars()はutf8ルールを理解し、文字を正しく認識できる <-- num_chars += line.chars().count();
+        num_chars += line.chars().count();
         line.clear();
     }
 
