@@ -3,9 +3,8 @@ use assert_cmd::Command;
 use predicates::prelude::*;
 use pretty_assertions::assert_eq;
 use rand::{distributions::Alphanumeric, Rng};
-use std::{borrow::Cow, fs, path::Path};
+use std::{borrow::Cow, fs};
 
-const PRG: &str = "findr";
 
 // --------------------------------------------------
 fn gen_bad_file() -> String {
@@ -27,7 +26,7 @@ fn gen_bad_file() -> String {
 fn skips_bad_dir() -> Result<()> {
     let bad = gen_bad_file();
     let expected = format!("{}: .* [(]os error [23][)]", &bad);
-    Command::cargo_bin(PRG)?
+    Command::new(  assert_cmd::cargo::cargo_bin!("findr"))
         .arg(&bad)
         .assert()
         .success()
@@ -38,7 +37,7 @@ fn skips_bad_dir() -> Result<()> {
 // --------------------------------------------------
 #[test]
 fn dies_bad_name() -> Result<()> {
-    Command::cargo_bin(PRG)?
+    Command::new(  assert_cmd::cargo::cargo_bin!("findr"))
         .args(["--name", "*.csv"])
         .assert()
         .failure()
@@ -50,7 +49,7 @@ fn dies_bad_name() -> Result<()> {
 #[test]
 fn dies_bad_type() -> Result<()> {
     let expected = "error: invalid value 'x' for '--type [<TYPE>...]'";
-    Command::cargo_bin(PRG)?
+    Command::new(  assert_cmd::cargo::cargo_bin!("findr"))
         .args(["--type", "x"])
         .assert()
         .failure()
@@ -60,7 +59,7 @@ fn dies_bad_type() -> Result<()> {
 
 // --------------------------------------------------
 #[cfg(windows)]
-fn format_file_name(expected_file: &str) -> Cow<str> {
+fn format_file_name(expected_file: &str) -> Cow<'_, str> {
     // Equivalent to: Cow::Owned(format!("{}.windows", expected_file))
     format!("{}.windows", expected_file).into()
 }
@@ -80,7 +79,7 @@ fn run(args: &[&str], expected_file: &str) -> Result<()> {
         contents.split('\n').filter(|s| !s.is_empty()).collect();
     expected.sort();
 
-    let cmd = Command::cargo_bin(PRG)?.args(args).assert().success();
+    let cmd = Command::new(  assert_cmd::cargo::cargo_bin!("findr")).args(args).assert().success();
     let out = cmd.get_output();
     let stdout = String::from_utf8(out.stdout.clone())?;
     let mut lines: Vec<&str> =
@@ -295,7 +294,7 @@ fn unreadable_dir() -> Result<()> {
         .status()
         .expect("failed");
 
-    let cmd = Command::cargo_bin(PRG)?
+    let cmd = Command::new(  assert_cmd::cargo::cargo_bin!("findr"))
         .arg("tests/inputs")
         .assert()
         .success();
