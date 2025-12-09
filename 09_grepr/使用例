@@ -1,0 +1,19 @@
+$ cargo run -- The tests/inputs/*.txt
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running `target\debug\grepr.exe The tests/inputs/bustle.txt tests/inputs/empty.txt tests/inputs/fox.txt tests/inputs/nobody.txt`
+tests/inputs/bustle.txt:The bustle in a house
+tests/inputs/bustle.txt:The morning after death
+tests/inputs/bustle.txt:The sweeping up the heart,
+tests/inputs/fox.txt:The quick brown fox jumps over the lazy dog.
+tests/inputs/nobody.txt:Then there's a pair of us!
+
+$ cargo run -- -i The tests/inputs/*.txt　大文字と小文字を区別しない場合は -i フラグを使う
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running `target\debug\grepr.exe -i The tests/inputs/bustle.txt tests/inputs/empty.txt tests/inputs/fox.txt tests/inputs/nobody.txt`
+tests/inputs/bustle.txt:The bustle in a house
+tests/inputs/bustle.txt:The morning after death
+tests/inputs/bustle.txt:The sweeping up the heart,
+tests/inputs/fox.txt:The quick brown fox jumps over the lazy dog.
+tests/inputs/nobody.txt:Then there's a pair of us!
+tests/inputs/nobody.txt:Don't tell! they'd advertise—you know!
+tests/inputs/nobody.txt:To tell one's name—the livelong June—

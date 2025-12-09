@@ -1,0 +1,169 @@
+  run関数は、このプログラムのメインの処理フローを制御しています。コマンドラインから受け取った引数（Args）を元に、ファイ
+  ル検索、パターンマッチング、結果の表示という一連の流れを実行します。
+
+    1 fn run(args: Args) -> Result<()> {
+    2     // 1. 正規表現パターンの準備
+    3     let pattern = RegexBuilder::new(&args.pattern)
+    4         .case_insensitive(args.insensitive)
+    5         .build()
+    6         .map_err(|_| anyhow!(r#"Invalid pattern "{}""#, args.pattern))?;
+    7
+    8     // 2. 検索対象のファイルリストを取得
+    9     let entries = find_files(&args.files, args.recursive);
+   10     let num_files = entries.len();
+   11
+   12     // 3. 結果を綺麗に出力するためのヘルパー関数（クロージャ）
+   13     let print = |fname: &str, val: &str| {
+   14         if num_files > 1 {
+   15             print!("{fname}:{val}");
+   16         } else {
+   17             print!("{val}");
+   18         }
+   19     };
+   20
+   21     // 4. 各ファイルをループ処理
+   22     for entry in entries {
+   23         match entry {
+   24             Err(e) => eprintln!("{e}"), // ファイルが見つからない等のエラー
+   25             Ok(filename) => match open(&filename) {
+   26                 Err(e) => eprintln!("{filename}: {e}"), // ファイルを開けないエラー
+   27                 Ok(file) => match find_lines(file, &pattern, args.invert) {
+   28                     Err(e) => eprintln!("{e}"), // 行の読み込みエラー
+   29                     Ok(matches) => {
+   30                         // 5. 結果の出力
+   31                         if args.count {
+   32                             // --count が指定された場合、マッチした行数を表示
+   33                             print(&filename, &format!("{}\n", matches.len()));
+   34                         } else {
+   35                             // マッチした各行を表示
+   36                             for line in &matches {
+   37                                 print(&filename, line);
+   38                             }
+   39                         }
+   40                     }
+   41                 },
+   42             },
+   43         }
+   44     }
+   45
+   46     Ok(())
+   47 }
+
+  解説
+
+   1. 正規表現パターンの準備:
+       * ユーザーが入力した検索文字列 (args.pattern) を元に、検索に使うための「正規表現オブジェクト」を作成します。
+       * RegexBuilder を使うことで、オプションを細かく設定できます。ここでは --insensitive
+         フラグが有効なら、.case_insensitive(true) を使って大文字・小文字を区別しないように設定しています。
+       * .build() で正規表現がコンパイルされます。もし無効なパターン（例: [
+         が閉じられていない）が指定された場合、map_err を使って分かりやすいエラーメッセージを生成して、?
+         演算子で即座にエラーを返します。
+
+   2. 検索対象のファイルリストを取得:
+       * 後述する find_files 関数を呼び出し、ユーザーが指定したパス (args.files) と再帰検索フラグ (args.recursive)
+         を渡して、検索すべきファイルのリスト (entries) を取得します。
+
+   3. 結果出力用のヘルパー関数（クロージャ）:
+       * print という名前の小さな関数（クロージャ）を定義しています。
+       * 検索対象のファイルが複数ある場合は ファイル名:マッチした行 のように、ファイルが1つしかない場合は マッチした行
+         のように、状況に応じて出力形式を切り替える役割を担います。
+
+   4. 各ファイルをループ処理:
+       * find_filesから受け取ったファイルリストを for ループで1つずつ処理します。
+       * match 式を入れ子で使うことで、エラー処理を丁寧に行っています。
+           * ファイルパスの取得失敗 → ファイルオープン失敗 →
+             ファイル読み込み失敗、という各段階でエラーが起きる可能性があり、それぞれ適切にエラーメッセージを出力します
+             。
+
+   5. 結果の出力:
+       * ファイルからマッチする行を見つけたら (Ok(matches))、いよいよ結果を出力します。
+       * --count フラグが指定されていれば、マッチした行数 (matches.len()) を表示します。
+       * そうでなければ、マッチした行 (matchesの中身) を1行ずつ表示します。
+       * このとき、ステップ3で定義した print クロージャが使われます。
+
+  ---
+
+  find_files関数について
+
+  find_files関数は、コマンドライン引数で与えられたパスを解釈し、実際に中身を検索すべきファイルのパスをすべてリストアップ
+  する役割を持ちます。
+
+    1 fn find_files(paths: &[String], recursive: bool) -> Vec<Result<String>> {
+    2     let mut results = vec![];
+    3
+    4     for path in paths {
+    5         match path.as_str() {
+    6             // 1. パスが "-" なら標準入力を意味する
+    7             "-" => results.push(Ok(path.to_string())),
+    8             _ => match fs::metadata(path) {
+    9                 Ok(metadata) => {
+   10                     // 2. パスがディレクトリの場合
+   11                     if metadata.is_dir() {
+   12                         if recursive {
+   13                             // 2-a. 再帰検索が有効な場合
+   14                             for entry in WalkDir::new(path)
+   15                                 .into_iter()
+   16                                 .flatten() // エラーが出たものはスキップ
+   17                                 .filter(|e| e.file_type().is_file()) // ファイルのみに絞り込み
+   18                             {
+   19                                 results.push(Ok(entry.path().display().to_string()));
+   20                             }
+   21                         } else {
+   22                             // 2-b. 再帰検索が無効な場合、ディレクトリ指定はエラー
+   23                             results.push(Err(anyhow!("{path} is a directory")));
+   24                         }
+   25                     // 3. パスがファイルの場合
+   26                     } else if metadata.is_file() {
+   27                         results.push(Ok(path.to_string()));
+   28                     }
+   29                 }
+   30                 // 4. パスが存在しない場合など
+   31                 Err(e) => results.push(Err(anyhow!("{path}: {e}"))),
+   32             },
+   33         }
+   34     }
+   35
+   36     results
+   37 }
+
+  解説
+
+  この関数の返り値は Vec<Result<String>>
+  です。これは「String（ファイルパス）のResultのベクタ（リスト）」を意味します。なぜ Result
+  が入っているかというと、指定されたパスのうち、あるものは正しくファイルを見つけられても、別のものは存在しないかもしれな
+  いからです。成功も失敗もまとめてリストとして返すための工夫です。
+
+   1. 標準入力の扱い:
+       * パスがハイフン1文字 (-)
+         の場合、これは「標準入力から読み込む」というUNIXの慣習的な意味を持ちます。そのため、特別な処理はせず、そのまま
+         Ok("-") としてリストに追加します。
+
+   2. ディレクトリの扱い:
+       * fs::metadata でパスの情報を取得し、それがディレクトリかどうか (metadata.is_dir()) を判定します。
+       * 2-a. 再帰検索が有効 (`recursive`が`true`) の場合:
+           * walkdir
+             という便利な外部クレート（ライブラリ）を使って、ディレクトリの中にあるファイルやサブディレクトリをすべて探
+             索します。
+           * .filter(|e| e.file_type().is_file()) で、見つかったものの中からファイルだけを抽出します。
+           * 見つかったファイルのパスを results リストに追加していきます。
+       * 2-b. 再帰検索が無効 (`recursive`が`false`) の場合:
+           * grepの標準的な動作に倣い、ディレクトリが指定された場合はエラーとして扱います。Err(...)
+             をリストに追加します。
+
+   3. ファイルの扱い:
+       * パスがファイル (metadata.is_file()) であれば、そのまま Ok(path) として results リストに追加します。
+
+   4. 存在しないパスの扱い:
+       * fs::metadata(path) が Err(e)
+         を返した場合、それはパスが存在しないか、アクセス権がないことを意味します。これもエラーとして Err(...) を
+         results リストに追加します。
+
+  まとめ
+
+   * find_files が探索の準備（ファイルリストの作成）を行い、
+   * run
+     がそのリストを使って実際の検索処理（ファイルを開き、1行ずつパターンと比較し、結果を表示する）を行う、というように、
+     うまく役割分担ができています。
+
+  特に match 式や Result、?
+  演算子を使ったエラー処理は、Rustらしい堅牢なプログラムを書く上で非常に重要なので、ぜひ注目してみてください。
