@@ -1,0 +1,15 @@
+$ cargo run -- -c 26-55 tests/inputs/books.txt
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running `target\debug\cutr.exe -c 26-55 tests/inputs/books.txt`
+Title
+La Confession de Claude
+Waiting for Godot
+20,000 Leagues Under the Sea
+
+$ cargo run -- -d , -f 1,3 tests/inputs/books.csv
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running `target\debug\cutr.exe -d , -f 1,3 tests/inputs/books.csv`
+Author,Title
+Émile Zola,La Confession de Claude
+Samuel Beckett,Waiting for Godot
+Jules Verne,"20,000 Leagues Under the Sea"
