@@ -1,0 +1,80 @@
+$ cargo run -- --help
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running `target\debug\commr.exe --help`
+Rust version of `comm`
+
+Usage: commr.exe [OPTIONS] <FILE1> <FILE2>
+
+Arguments:
+  <FILE1>  Input file 1
+  <FILE2>  Input file 2
+
+Options:
+  -1                                  Suppress printing of column 1
+  -2                                  Suppress printing of column 2
+  -3                                  Suppress printing of column 3
+  -i                                  Case-insensitive comparison of lines
+  -d, --output-delimiter <DELIMITER>  Output delimiter [default: "\t"]
+  -h, --help                          Print help
+  -V, --version                       Print version
+
+$ cargo run -- -12 tests/inputs/file1.txt tests/inputs/file2.txt
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running `target\debug\commr.exe -12 tests/inputs/file1.txt tests/inputs/file2.txt`
+c
+
+$ cargo run -- -2 tests/inputs/file1.txt tests/inputs/file3.txt
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running `target\debug\commr.exe -2 tests/inputs/file1.txt tests/inputs/file3.txt`
+        a
+        b
+        c
+        d
+
+$ cargo test
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running unittests src\main.rs (target\debug\deps\commr-b89efade1f48b921.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\cli.rs (target\debug\deps\cli-0646704e50d7172d.exe)
+
+running 34 tests
+test blank_file1 ... ok
+test dies_bad_file1 ... ok
+test dies_both_stdin ... ok
+test file1_file1 ... ok
+test dies_no_args ... ok
+test empty_empty ... ok
+test empty_file2 ... ok
+test file1_file2 ... ok
+test file1_file2_1 ... ok
+test dies_bad_file2 ... ok
+test file1_empty ... ok
+test file1_file2_123 ... ok
+test file1_file2_123_delim ... ok
+test file1_file2_123_i ... ok
+test file1_file2_13 ... ok
+test file1_file2_13_delim ... ok
+test file1_file2_12_delim ... ok
+test file1_file2_13_i ... ok
+test file1_file2_1_2 ... ok
+test file1_file2_1_2_i ... ok
+test file1_file2_1_delim ... ok
+test file1_file2_1_i ... ok
+test file1_file2_23_delim ... ok
+test file1_file2_2 ... ok
+test file1_file2_2_3 ... ok
+test file1_file2_2_3_i ... ok
+test file1_file2_2_delim ... ok
+test file1_file2_2_i ... ok
+test file1_file2_3 ... ok
+test file1_file2_3_delim ... ok
+test file1_file2_3_i ... ok
+test file1_file2_delim ... ok
+test stdin_file1 ... ok
+test stdin_file2 ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
