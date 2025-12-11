@@ -1,0 +1,54 @@
+ git diff の出力には、今回の修正範囲外のファイルも含まれていました。以下に、私が行った src/main.rs
+  の変更差分のみを抜粋して表示します。
+
+    1 --- a/12_fortuner/src/main.rs
+    2 +++ b/12_fortuner/src/main.rs
+    3 @@ -118,7 +118,6 @@ fn find_files(paths: &[String]) -> Result<Vec<PathBuf>> {
+    4  // --------------------------------------------------
+    5  fn read_fortunes(paths: &[PathBuf]) -> Result<Vec<Fortune>> {
+    6      let mut fortunes = vec![];
+    7 -    let mut buffer = vec![];
+    8
+    9      for path in paths {
+   10          let basename =
+   11 @@ -126,19 +125,29 @@ fn read_fortunes(paths: &[PathBuf]) -> Result<Vec<Fortune>> {
+   12          let file = File::open(path)
+   13              .map_err(|e| anyhow!("{}: {e}", path.to_string_lossy()))?;
+   14
+   15 +        let mut buffer = vec![];
+   16          for line in BufReader::new(file).lines().map_while(Result::ok) {
+   17              if line == "%" {
+   18 -                if !buffer.is_empty() {
+   19 +                let fortune_text = buffer.join("\n").trim().to_string();
+   20 +                if !fortune_text.is_empty() {
+   21                      fortunes.push(Fortune {
+   22                          source: basename.clone(),
+   23 -                        text: buffer.join("\n"),
+   24 +                        text: fortune_text,
+   25                      });
+   26 -                    buffer.clear();
+   27                  }
+   28 +                buffer.clear();
+   29              } else {
+   30 -                buffer.push(line.to_string());
+   31 +                buffer.push(line);
+   32              }
+   33          }
+   34 +
+   35 +        let fortune_text = buffer.join("\n").trim().to_string();
+   36 +        if !fortune_text.is_empty() {
+   37 +            fortunes.push(Fortune {
+   38 +                source: basename.clone(),
+   39 +                text: fortune_text,
+   40 +            });
+   41 +        }
+   42      }
+   43
+   44      Ok(fortunes)
+
+  この変更は、read_fortunes 関数に焦点を当てています。主な変更点は以下の通りです。
+
+   1. buffer 変数をファイルごとのループ内に移動させ、ファイル間で状態が引き継がれないようにしました。
+   2. 各引用句のテキストから前後の空白を .trim() で除去し、空の引用句がリストに追加されるのを防ぎました。
+   3. ファイルの最後に % 区切りがない場合でも、最後の引用句が正しく読み込まれるようにしました。
+

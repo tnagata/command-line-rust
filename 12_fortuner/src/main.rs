@@ -118,7 +118,6 @@ fn find_files(paths: &[String]) -> Result<Vec<PathBuf>> {
 // --------------------------------------------------
 fn read_fortunes(paths: &[PathBuf]) -> Result<Vec<Fortune>> {
     let mut fortunes = vec![];
-    let mut buffer = vec![];
 
     for path in paths {
         let basename =
@@ -126,18 +125,28 @@ fn read_fortunes(paths: &[PathBuf]) -> Result<Vec<Fortune>> {
         let file = File::open(path)
             .map_err(|e| anyhow!("{}: {e}", path.to_string_lossy()))?;
 
+        let mut buffer = vec![];
         for line in BufReader::new(file).lines().map_while(Result::ok) {
             if line == "%" {
-                if !buffer.is_empty() {
+                let fortune_text = buffer.join("\n").trim().to_string();
+                if !fortune_text.is_empty() {
                     fortunes.push(Fortune {
                         source: basename.clone(),
-                        text: buffer.join("\n"),
+                        text: fortune_text,
                     });
-                    buffer.clear();
                 }
+                buffer.clear();
             } else {
-                buffer.push(line.to_string());
+                buffer.push(line);
             }
+        }
+
+        let fortune_text = buffer.join("\n").trim().to_string();
+        if !fortune_text.is_empty() {
+            fortunes.push(Fortune {
+                source: basename.clone(),
+                text: fortune_text,
+            });
         }
     }
 
