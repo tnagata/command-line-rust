@@ -1,0 +1,41 @@
+実装の流れ（高レベル）
+
+Config 構造体に clap の derive(Parser) を使い CLI を定義（ファイル引数、-n と -b オプション）。
+main は Config::parse() でパースし、run(config) を呼ぶ。run は anyhow::Result<()> を返して ? でエラー伝搬をできるようにしている。
+run は指定された各ファイル名に対して open() を呼び、- は標準入力にマップされる。ファイルを BufRead として扱い、lines().enumerate() で1行ずつ処理する。
+オプションに応じて行を単純に出力、全行番号付与（-n）、空行を除いて番号付与（-b）のいずれかの処理をする。
+注目すべき Rust のテクニック・設計選択（詳しく）
+
+Clap の導入（宣言的な CLI）
+
+#[derive(Parser)] と #[command(author, version, about)] を使い、Config::parse() で手早くパース可能。
+属性で conflicts_with("number_nonblank_lines") のように互換性チェックを宣言でき、手動のチェックが不要。
+エラーハンドリングの簡潔化（anyhow::Result と ?）
+
+run が anyhow::Result<()> を返すため、line_result? のように ? を使って io::Error を anyhow::Error に自動的に変換・伝搬できる。これにより map_err 等の煩雑さが減る。
+一方で open() が失敗した場合は run が即座に Err を返すのではなく、match でキャッチして eprintln! し処理を続ける設計（壊れたファイルはスキップする）。読み込み中の I/O エラーは ? により即戻る（致命的扱い）。
+抽象化に Box<dyn BufRead> を利用（トレイトオブジェクト）
+
+open の返り値は Result<Box<dyn BufRead>>。これにより File と io::stdin() の異なる具体型を統一して返せる。
+理由：BufReader<File> と BufReader<Stdin> は別の型であり、シグネチャに具体型を直接返すとマッチの両分岐で型が異なるため難しい。Box<dyn BufRead> はヒープ上のトレイトオブジェクトで動的ディスパッチすることで解決している。
+代替案としては enum を定義する方法や、呼び出し側をジェネリックにする方法があるが、この用途ではトレイトオブジェクトが実用的で簡潔。
+イテレータと enumerate() の活用
+
+file.lines().enumerate() により、行ごとのインデックスを自然に取り出す。line_num + 1 で1始まりの行番号にしている（usize の扱いも安全）。
+line_result? を使うことで、行読み込みの Result<String, io::Error> を即座に展開し、エラーを run の呼び出し元へ返す。
+文字列とフォーマット
+
+println!("{:6}\t{line}", line_num + 1) のように書式指定（フィールド幅）と名前付き変数埋め込みを使って見やすい整形をしている。
+eprintln!("{filename}: {e}") といった名前付きフォーマット（可読性が良い）を多用。
+標準入力扱いの慣習（"-"）
+
+clap 側で default_value = "-" を設定し、open で "-" を標準入力にマップ。これは Unix の伝統を踏襲している。
+テストの書き方（外部プロセス実行）
+
+assert_cmd を用いてビルド済みバイナリを呼び出し、predicates と pretty_assertions で stdout/stderr の比較を行う。実際のバイナリ挙動を確認する統合テストになっている。
+run_stdin ヘルパーは標準入力のテストを行い、write_stdin でプロセスにデータを流し込む。存在しないファイルのテストでは stderr の正規表現マッチを使ってエラー表示を検証している。
+小さな改善余地（参考）
+
+Box<dyn BufRead> は便利だが、動的ディスパッチコストやヒープ確保を伴う。極限の性能が必要なら enum で具体型を列挙して静的ディスパッチにする選択肢もある。
+現状、open() の失敗は eprintln! して続行、読み取りエラーは即エラー返却と扱いが違う点は設計上合理的だが、ログ出力方針を統一するか検討できる。
+必要なら、open を enum に変えてゼロアロケーションにする小さな改修案や、run のエラーメッセージをもっと構造化する変更案も作れます。どれを深掘りしますか？
